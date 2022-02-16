@@ -1,0 +1,171 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Optimist - Pessimist scale</title>
+    <script>
+      var particleDisplay = {
+        Particle: function(x, y) {
+          this.x = x;
+          this.y = y;
+          this.radius = 3.5;
+          this.draw = function(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, this.radius, this.radius);
+            ctx.restore();
+          };
+        },
+        repeat: 10,
+        init: function() {
+          particleDisplay.canvas = document.querySelector('canvas');
+          particleDisplay.ctx = particleDisplay.canvas.getContext('2d');
+          particleDisplay.W = window.innerWidth;
+          particleDisplay.H = window.innerHeight;
+          particleDisplay.particlePositions = [];
+          particleDisplay.particles = [];
+          particleDisplay.tmpCanvas = document.createElement('canvas');
+          particleDisplay.tmpCtx = particleDisplay.tmpCanvas.getContext('2d');
+
+          particleDisplay.canvas.width = particleDisplay.W;
+          particleDisplay.canvas.height = particleDisplay.H;
+          particleDisplay.canvas.style.display = 'block';
+
+          particleDisplay.values = [];
+          particleDisplay.repeat = 10;
+
+          var dir = 1;
+          particleDisplay.intervalId = setInterval(function(){
+            if (dir)
+              particleDisplay.getPixels(particleDisplay.tmpCanvas, particleDisplay.tmpCtx);
+            else
+              particleDisplay.reverseDir();
+            dir = !dir;
+          }, 600);
+
+          particleDisplay.makeParticles();
+          particleDisplay.animate();
+        }, 
+        makeParticles: function() {
+          particleDisplay.particles = [];
+          for (var i = 0; i < particleDisplay.particlePositions.length; i++) {
+            particleDisplay.particles.push(new particleDisplay.Particle(particleDisplay.W / 2 + Math.random() * 400 - 200, particleDisplay.H / 2 + Math.random() * 400 - 200));
+          }
+        },
+        getPixels: function(canvas, ctx) {
+          var str = Math.floor(Math.random()*90+10),
+              gridX = 6,
+              gridY = 6;
+          particleDisplay.values.push(str);
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          ctx.fillStyle = 'red';
+          ctx.font = 'italic bold 330px Noto Serif';
+          ctx.fillText(str, canvas.width / 2 - ctx.measureText(str).width / 2, canvas.height / 2 + 100);
+          var idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var buffer32 = new Uint32Array(idata.data.buffer);
+          if (particleDisplay.particlePositions.length > 0) particleDisplay.particlePositions = [];
+          for (var y = 0; y < canvas.height; y += gridY) {
+            for (var x = 0; x < canvas.width; x += gridX) {
+              if (buffer32[y * canvas.width + x]) {
+                particleDisplay.particlePositions.push(new particleDisplay.Particle(x,y));
+              }
+            }
+          }
+          particleDisplay.makeParticles();
+        },
+        reverseDir: function() {
+          particleDisplay.makeParticles();
+          var v = particleDisplay.particles;
+          particleDisplay.particles = particleDisplay.particlePositions;
+          particleDisplay.particlePositions = v;
+          if (--particleDisplay.repeat <= 0) endTest();
+        },
+        animateParticles: function() {
+          for (var i = 0, num = particleDisplay.particles.length; i < num; i++) {
+            var p = particleDisplay.particles[i];
+            var pPos = particleDisplay.particlePositions[i];
+            p.x += (pPos.x - p.x) * .2;
+            p.y += (pPos.y - p.y) * .2;
+            p.draw(particleDisplay.ctx);
+          }
+        },
+        animate: function() {
+          requestAnimationFrame(particleDisplay.animate);
+          particleDisplay.ctx.fillStyle = 'rgba(23, 41, 58, .8)';
+          particleDisplay.ctx.fillRect(0, 0, particleDisplay.W, particleDisplay.H);
+          particleDisplay.animateParticles();
+        }
+      };
+
+      function startTest() {
+        document.querySelector('.help').style.display = 'none';
+        particleDisplay.init();
+      }
+      function endTest() {
+        clearInterval(particleDisplay.intervalId);
+        particleDisplay.canvas.style.display = 'none';
+        document.querySelector('.ask').style.display = 'block';
+      }
+      function checkGuess() {
+        var v = particleDisplay.values,
+            g = document.querySelector('input').value;
+        var vmin = Math.min(...v), vmax = Math.max(...v);
+        function f(x) {
+          var s = 0;
+          x = Math.tan(x*Math.PI/2) + 1; // [-1;0;1] -> [-∞;1;+∞]
+          for (var i = 0; i < v.length; i++)
+            s += Math.pow(v[i], x);
+          r = Math.pow(s/v.length, 1/x);
+          if (r > vmax) r = vmax; else if (r < vmin) r = vmin;
+          return r
+        }
+        var a = -1, fa = vmin, b = 1, fb = vmax;
+        var c = 0, fc = f(0), cprev = 1;
+        while (Math.abs(c - cprev) > 0.001) {
+          console.log(a+'('+fa+') '+c+'('+fc+') '+b+'('+fb+')');
+          if (g < fc) { b = c; fb = fc; }
+          else if (g > fc) { a = c; fa = fc; }
+          cprev = c;
+          c = (a + b) / 2;
+          fc = f(c);
+        }
+        console.log(a+'('+fa+') '+c+'('+fc+') '+b+'('+fb+')');
+        document.querySelector('.res span').innerHTML = Math.round(c*100)/100;
+        document.querySelector('.ask').style.display = 'none';
+        document.querySelector('.res').style.display = 'block';
+      }
+    </script>
+    <style>
+      body { background-color:rgba(23, 41, 58); }
+      .frame { color:white; font-size:2vw; width:80%; margin:auto; border:1vw outset grey; padding:2vw; }
+      .frame .btn { text-align:center; }
+      .frame .btn button { font-size:inherit; border-radius:2vw; border-width:0.5vw; padding:1vw; }
+      .frame input { font-size:inherit; border-radius:1vw; border-width:0.5vw; }
+      canvas { display:none;}
+      .ask { display:none; }
+      .res { display:none; }
+      .res span { font-size:3vw; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <link href="https://fonts.googleapis.com/css?family=Noto+Serif:700,700italic" rel="stylesheet" type="text/css">
+    <canvas></canvas>
+    <div class="help frame">
+      <p>Предположим, вас, вместе с другими десятью участниками, пригласили для
+      участия в эксперименте по психологии. И каждому участнику выдали какую-то
+      сумму денег в конверте. Все остальные участники уже открыли свои
+      конверты, сейчас вам покажут сколько тысяч рублей дали каждому из них (по
+      очереди покажут десять двузначных чисел, например, 15 значит 15 тысяч).
+      Сколько, как вам кажется, в вашем конверте?</p>
+      <div class=btn><button onclick="startTest()">Поехали!</button></div>
+    </div>
+    <div class="ask frame">
+      <p>Ну так сколько же (тысяч рублей) ? <input type=number min=10 max=99 /></p>
+      <div class=btn><button onclick="checkGuess()">Проверить себя</button></div>
+    </div>
+    <div class="res frame">
+      <p>Ваш коэффициент оптимизма (по шкале от -1 до +1): <span>10</span></p>
+    </div>
+  </body>
+</html>
